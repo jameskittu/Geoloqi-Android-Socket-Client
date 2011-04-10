@@ -20,60 +20,70 @@ import android.widget.TextView;
 
 
 public class geoloqiSocketClient extends Activity {
+	static String TAG = "geoloqi.socket";
 	static String host = "api.geoloqi.com";
 	static int port = 40000;
 	static String accessToken = "";
-	
-	String readFromSocketInputStream(InputStream is)
-		throws Exception
+
+	String readFromSocketInputStream(InputStream is) throws Exception
 	{
-		System.out.println("reading from socket");
-		byte[] b = new byte[1024];
-        int numread = is.read(b, 0, 1024);
-        String str = "";
-        System.out.println("xnumread: " + numread + " str: " + str);
-        while(numread != -1)
-        {
-        	System.out.println("in while");
-        	str += new String(b, 0, numread);
-        	numread = is.read(b, 0, 1024);
-        }
-        System.out.println("str: " + str);
-        return str;
+
+		// Create a byte array to store the number of bytes coming up
+		byte[] b = new byte[4];
+		Log.i(TAG, "reading from socket");
+		int numread = is.read(b, 0, 4);
+		if(numread != 4) {
+			throw new Exception("Wrong number of bytes were read: " + numread + " expecting 4");
+		}
+		int numBytes = ((int)(b[3] & 0xFF) << 24) 
+					  | ((int)(b[2] & 0xFF) << 16) 
+					  | ((int)(b[1] & 0xFF) << 8) 
+					  | (int)b[0] & 0xFF;
+
+		byte[] buffer = new byte[numBytes];  // TODO: How to do this properly? Maybe we need a buffered reader?
+		Log.i(TAG, "attempting to read " + numBytes + " from socket");
+		numread = is.read(buffer, 0, numBytes);
+		
+		if(numread != numBytes) {
+			throw new Exception("Wrong number of bytes were read: " + numread + "expecting " + numBytes);
+		}
+		
+		String str = new String(buffer, 0, numBytes);
+		Log.i(TAG, "read buffer into a string: " + str);
+		return str;
 	}
-	
-    /** Called when the activity is first created. */
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
-        
-        TextView text = (TextView) findViewById(R.id.textView1); 
-        text.setText("Android yay.");
-        
-        try
-        {
-        	Socket s = new Socket(host, port);
-        	OutputStream os = s.getOutputStream();
-            InputStream in = s.getInputStream();
-            //connect and get the access token prompt
-           	String response = readFromSocketInputStream(in);
-            System.out.println("response: " + response);
-        	Log.i("geoloqi", response + " from socket");
-            
-            //got the prompt, send the access token
-            os.write(accessToken.getBytes());
-            os.flush();
-            
-            
-            
-        }
-        catch(Exception e)
-        {
-        	e.printStackTrace();
-        	text.setText("Error: " + e.getMessage());
-        }
-        
-        
-    }
+
+	/** Called when the activity is first created. */
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.main);
+
+		TextView text = (TextView) findViewById(R.id.textView1); 
+		text.setText("Android yay.");
+
+		try
+		{
+			Socket s = new Socket(host, port);
+			OutputStream os = s.getOutputStream();
+			InputStream in = s.getInputStream();
+			//connect and get the access token prompt
+			String response = readFromSocketInputStream(in);
+			Log.i(TAG, "'" + response + "' from socket");
+
+			//got the prompt, send the access token
+			os.write(accessToken.getBytes());
+			os.flush();
+
+
+
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+			text.setText("Error: " + e.getMessage());
+		}
+
+
+	}
 }

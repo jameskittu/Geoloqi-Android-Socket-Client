@@ -15,10 +15,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
 
-//TextView text = (TextView) findViewById(R.id.textView1); 
-//text.setText("Android yay.");
-
-
 public class geoloqiSocketClient extends Activity {
 	static String TAG = "geoloqi.socket";
 	static String host = "api.geoloqi.com";
@@ -27,10 +23,9 @@ public class geoloqiSocketClient extends Activity {
 
 	String readFromSocketInputStream(InputStream is) throws Exception
 	{
-
 		// Create a byte array to store the number of bytes coming up
 		byte[] b = new byte[4];
-		Log.i(TAG, "reading from socket");
+		Log.i(TAG, "waiting for input from stream");
 		int numread = is.read(b, 0, 4);
 		if(numread != 4) {
 			throw new Exception("Wrong number of bytes were read: " + numread + " expecting 4");
@@ -49,7 +44,6 @@ public class geoloqiSocketClient extends Activity {
 		}
 		
 		String str = new String(buffer, 0, numBytes);
-		Log.i(TAG, "read buffer into a string: " + str);
 		return str;
 	}
 
@@ -65,17 +59,26 @@ public class geoloqiSocketClient extends Activity {
 		try
 		{
 			Socket s = new Socket(host, port);
-			OutputStream os = s.getOutputStream();
+			OutputStream out = s.getOutputStream();
 			InputStream in = s.getInputStream();
-			//connect and get the access token prompt
+			
+			// connect and get the access token prompt
 			String response = readFromSocketInputStream(in);
-			Log.i(TAG, "'" + response + "' from socket");
 
-			//got the prompt, send the access token
-			os.write(accessToken.getBytes());
-			os.flush();
+			// got the prompt, send the access token
+			out.write(accessToken.getBytes());
+			out.flush();
 
-
+			// read the "logged in" prompt
+			response = readFromSocketInputStream(in);
+			Log.i(TAG, response);
+			
+			// Wait for more data from the socket and output it
+			while(true) {
+				response = readFromSocketInputStream(in);
+				text.setText(response);
+				Log.i(TAG, response);
+			}
 
 		}
 		catch(Exception e)
@@ -83,7 +86,6 @@ public class geoloqiSocketClient extends Activity {
 			e.printStackTrace();
 			text.setText("Error: " + e.getMessage());
 		}
-
 
 	}
 }

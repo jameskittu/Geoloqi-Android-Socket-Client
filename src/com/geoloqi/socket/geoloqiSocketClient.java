@@ -23,6 +23,9 @@ public class GeoloqiSocketClient extends Activity {
 	static String host = "api.geoloqi.com";
 	static int port = 40000;
 	
+	private Thread readerThread;
+	public Socket s;
+	public OutputStream out;
 	public InputStream in;
 	public TextView textView;
 
@@ -64,8 +67,8 @@ public class GeoloqiSocketClient extends Activity {
 
 		try
 		{
-			Socket s = new Socket(host, port);
-			OutputStream out = s.getOutputStream();
+			s = new Socket(host, port);
+			out = s.getOutputStream();
 			in = s.getInputStream();
 
 			// doing this stuff on the main thread for now, move it later, possibly using the "tag" scheme from the iPhone version
@@ -79,11 +82,10 @@ public class GeoloqiSocketClient extends Activity {
 
 			// read the "logged in" prompt
 			response = readFromSocketInputStream(in);
-			Log.i(TAG, response);
 			textView.append(response);
 
 			// Start listening to the socket for data
-			Thread readerThread = new Thread(new IncomingReader());
+			readerThread = new Thread(new IncomingReader());
 			readerThread.start();
 		}
 		catch(Exception e)
@@ -92,6 +94,20 @@ public class GeoloqiSocketClient extends Activity {
 			textView.append("Error: " + e.getMessage() + "\n");
 		}
 
+	}
+	
+	@Override
+	public void onDestroy() {
+		try {
+			s.shutdownInput();
+			s.shutdownOutput();
+			s.close();
+			readerThread.interrupt();
+			Log.i(TAG, "Closing socket");
+		} catch(Exception e) {
+			textView.append("Error Closing Socket: " + e.getMessage() + "\n");
+		}
+		super.onDestroy();
 	}
 	
 	final Handler incomingHandler = new Handler() {

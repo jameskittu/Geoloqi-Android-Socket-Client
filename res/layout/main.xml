@@ -2,12 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    >
-<TextView  
-    android:layout_width="fill_parent" 
-    android:layout_height="wrap_content" 
-    android:text="@string/hello"
-    />
-<TextView android:id="@+id/textView1" android:text="TextView" android:layout_height="fill_parent" android:layout_width="fill_parent" android:inputType="text|textMultiLine"></TextView>
+    android:layout_height="fill_parent">
+
+	<ScrollView android:id="@+id/scrollView"
+		android:layout_height="110px"
+		android:layout_width="fill_parent">    
+		<TextView android:id="@+id/textView1" 
+			android:text="TextView" 
+			android:layout_height="fill_parent" 
+			android:layout_width="fill_parent" 
+			android:inputType="text|textMultiLine"></TextView>
+	</ScrollView>
+	<WebView
+	    android:id="@+id/webView"
+	    android:layout_width="fill_parent"
+	    android:layout_height="fill_parent"
+	  />
 </LinearLayout>

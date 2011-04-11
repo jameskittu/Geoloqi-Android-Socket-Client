@@ -16,6 +16,10 @@ import android.os.Message;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 public class GeoloqiSocketClient extends Activity {
@@ -28,6 +32,10 @@ public class GeoloqiSocketClient extends Activity {
 	public OutputStream out;
 	public InputStream in;
 	public TextView textView;
+	public ScrollView scrollView;
+	
+	public WebView webView;
+	LQWebViewClient browserHandler = new LQWebViewClient();
 
 	String readFromSocketInputStream(InputStream is) throws Exception
 	{
@@ -62,9 +70,17 @@ public class GeoloqiSocketClient extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
+		scrollView = (ScrollView)findViewById(R.id.scrollView);
+
 		textView = (TextView)findViewById(R.id.textView1); 
 		textView.setText("Connecting...\n");
 
+		webView = (WebView)findViewById(R.id.webView);
+		webView.loadUrl("http://loqi.me/pdx-pacmap/app-test.php");
+		WebSettings ws = webView.getSettings();
+		ws.setJavaScriptEnabled(true);
+		webView.setWebViewClient(browserHandler);
+		
 		try
 		{
 			s = new Socket(host, port);
@@ -82,7 +98,7 @@ public class GeoloqiSocketClient extends Activity {
 
 			// read the "logged in" prompt
 			response = readFromSocketInputStream(in);
-			textView.append(response);
+			logMsg(response);
 
 			// Start listening to the socket for data
 			readerThread = new Thread(new IncomingReader());
@@ -91,7 +107,7 @@ public class GeoloqiSocketClient extends Activity {
 		catch(Exception e)
 		{
 			e.printStackTrace();
-			textView.append("Error: " + e.getMessage() + "\n");
+			logMsg("Error: " + e.getMessage() + "\n");
 		}
 
 	}
@@ -105,29 +121,33 @@ public class GeoloqiSocketClient extends Activity {
 			readerThread.interrupt();
 			Log.i(TAG, "Closing socket");
 		} catch(Exception e) {
-			textView.append("Error Closing Socket: " + e.getMessage() + "\n");
+			logMsg("Error Closing Socket: " + e.getMessage() + "\n");
 		}
 		super.onDestroy();
+	}
+	
+	public void logMsg(String msg) {
+		textView.setText(msg + textView.getText());
+		// scrollView.fullScroll(View.FOCUS_DOWN);
 	}
 	
 	final Handler incomingHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
-			textView.append((String)msg.obj + "\n");
+			logMsg((String)msg.obj + "\n");
 			super.handleMessage(msg);
 		}
 	};
 	
 	public class IncomingReader implements Runnable {
-		
 		public void run() {
-			// TODO Auto-generated method stub
 			try {
 				while(true) {
 					String response = readFromSocketInputStream(in);
 					Message msg = incomingHandler.obtainMessage();
 					msg.obj = response;
 					incomingHandler.sendMessage(msg);
+					browserHandler.sendDataToBrowser(response);
 					Log.i(TAG, "Got this in the background: " + response);
 				}
 			} catch (Exception e) {
@@ -135,7 +155,23 @@ public class GeoloqiSocketClient extends Activity {
 				e.printStackTrace();
 			}
 		}
-
 	}
-
+	
+	public class LQWebViewClient extends WebViewClient {
+		private Boolean isReady = false;
+		
+		@Override
+		public void onPageFinished(WebView view, String url) {
+			Log.i(TAG, "browser finished loading");
+			isReady = true;
+		}
+		
+		public void sendDataToBrowser(String jsonObject) {
+			if(isReady) {
+				Log.i(TAG, "sending to browser: " + jsonObject);
+				webView.loadUrl("javascript:window.lqReceive(" + jsonObject + ");");
+			}
+		}
+	}
+	
 }

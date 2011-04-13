@@ -13,6 +13,11 @@
 			android:layout_width="fill_parent" 
 			android:inputType="text|textMultiLine"></TextView>
 	</ScrollView>
+	<Button android:gravity="right" 
+			android:id="@+id/buttonStart"
+			android:layout_height="40px"
+			android:layout_width="fill_parent" 
+			android:text="Start" />
 	<WebView
 	    android:id="@+id/webView"
 	    android:layout_width="fill_parent"

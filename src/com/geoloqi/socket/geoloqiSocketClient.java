@@ -7,62 +7,49 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import com.geoloqi.socket.GeoloqiService.LocalBinder;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningServiceInfo;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-public class GeoloqiSocketClient extends Activity {
+public class GeoloqiSocketClient extends Activity implements OnClickListener {
 	static String TAG = "geoloqi.socket";
-	static String host = "api.geoloqi.com";
-	static int port = 40000;
 	
-	private Thread readerThread;
-	public Socket s;
-	public OutputStream out;
-	public InputStream in;
+	GeoloqiService mService;
+    boolean mBound = false;
+
+	private Handler handler = new Handler();
+	private Button buttonStart;
+
 	public TextView textView;
 	public ScrollView scrollView;
 	
 	public WebView webView;
 	LQWebViewClient browserHandler = new LQWebViewClient();
-
-	String readFromSocketInputStream(InputStream is) throws Exception
-	{
-		// Create a byte array to store the number of bytes coming up
-		byte[] b = new byte[4];
-		Log.i(TAG, "waiting for message length packet from stream");
-		int numread = is.read(b, 0, 4);
-		if(numread != 4) {
-			throw new Exception("Wrong number of bytes were read: " + numread + " expecting 4");
-		}
-		int numBytes = ((int)(b[3] & 0xFF) << 24) 
-					  | ((int)(b[2] & 0xFF) << 16) 
-					  | ((int)(b[1] & 0xFF) << 8) 
-					  | (int)b[0] & 0xFF;
-
-		byte[] buffer = new byte[numBytes];  // TODO: How do we handle reading large chunks of data?
-		Log.i(TAG, "attempting to read " + numBytes + " bytes from socket");
-		numread = is.read(buffer, 0, numBytes);
-		
-		if(numread != numBytes) {
-			throw new Exception("Wrong number of bytes were read: " + numread + "expecting " + numBytes);
-		}
-		
-		String str = new String(buffer, 0, numBytes);
-		Log.i(TAG, "read message: '" + str + "'");
-		return str;
-	}
 
 	/** Called when the activity is first created. */
 	@Override
@@ -70,91 +57,92 @@ public class GeoloqiSocketClient extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
+		buttonStart = (Button)findViewById(R.id.buttonStart);
+		
 		scrollView = (ScrollView)findViewById(R.id.scrollView);
 
 		textView = (TextView)findViewById(R.id.textView1); 
-		textView.setText("Connecting...\n");
+		textView.setText("Connecting\n");
 
 		webView = (WebView)findViewById(R.id.webView);
 		webView.loadUrl("http://loqi.me/pdx-pacmap/app-test.php");
 		WebSettings ws = webView.getSettings();
 		ws.setJavaScriptEnabled(true);
 		webView.setWebViewClient(browserHandler);
-		
-		try
-		{
-			s = new Socket(host, port);
-			out = s.getOutputStream();
-			in = s.getInputStream();
 
-			// doing this stuff on the main thread for now, move it later, possibly using the "tag" scheme from the iPhone version
-			
-			// connect and get the access token prompt
-			String response = readFromSocketInputStream(in);
-
-			// got the prompt, send the access token
-			out.write(GeoloqiConstants.ACCESS_TOKEN.getBytes());
-			out.flush();
-
-			// read the "logged in" prompt
-			response = readFromSocketInputStream(in);
-			logMsg(response);
-
-			// Start listening to the socket for data
-			readerThread = new Thread(new IncomingReader());
-			readerThread.start();
+		if(!isServiceRunning()) {
+			buttonStart.setText("Stop Tracking");
+			startService(new Intent(this, GeoloqiService.class));
+		} else {
+			buttonStart.setText("Start Tracking");
 		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-			logMsg("Error: " + e.getMessage() + "\n");
-		}
+		buttonStart.setOnClickListener(this);
 
+		new Timer().schedule(new MyTimerTask(), 0, 1000);
 	}
-	
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Bind to LocalService
+        Log.i(TAG, "Binding to Geoloqi service");
+        Intent intent = new Intent(this, GeoloqiService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Unbind from the service
+        if (mBound) {
+            unbindService(mConnection);
+            mBound = false;
+        }
+    }
+
+    /** Defines callbacks for service binding, passed to bindService() */
+    private ServiceConnection mConnection = new ServiceConnection() {
+        // @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+        	Log.i(TAG, "Service connected: " + service);
+        	if(service.getClass() != GeoloqiService.class) {
+        		return;
+        	}
+            // We've bound to GeoloqiService, cast the IBinder and get GeoloqiService instance
+        	LocalBinder binder = (LocalBinder)service;
+            mService = binder.getService();
+            mBound = true;
+        }
+
+        // @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+        	Log.i(TAG, "Service Disconnected");
+            mBound = false;
+        }
+    };
+
 	@Override
 	public void onDestroy() {
-		try {
-			s.shutdownInput();
-			s.shutdownOutput();
-			s.close();
-			readerThread.interrupt();
-			Log.i(TAG, "Closing socket");
-		} catch(Exception e) {
-			logMsg("Error Closing Socket: " + e.getMessage() + "\n");
-		}
 		super.onDestroy();
+	}
+
+	public void onClick(View src) {
+		switch (src.getId()) {
+		case R.id.buttonStart:
+			if(!isServiceRunning()) {
+				logMsg("starting gps\n");
+				startService(new Intent(this, GeoloqiService.class));
+			} else {
+				logMsg("stopping gps\n");
+				stopService(new Intent(this, GeoloqiService.class));
+			}
+			break;
+		}
 	}
 	
 	public void logMsg(String msg) {
 		textView.setText(msg + textView.getText());
 		// scrollView.fullScroll(View.FOCUS_DOWN);
-	}
-	
-	final Handler incomingHandler = new Handler() {
-		@Override
-		public void handleMessage(Message msg) {
-			logMsg((String)msg.obj + "\n");
-			super.handleMessage(msg);
-		}
-	};
-	
-	public class IncomingReader implements Runnable {
-		public void run() {
-			try {
-				while(true) {
-					String response = readFromSocketInputStream(in);
-					Message msg = incomingHandler.obtainMessage();
-					msg.obj = response;
-					incomingHandler.sendMessage(msg);
-					browserHandler.sendDataToBrowser(response);
-					Log.i(TAG, "Got this in the background: " + response);
-				}
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
 	}
 	
 	public class LQWebViewClient extends WebViewClient {
@@ -173,5 +161,38 @@ public class GeoloqiSocketClient extends Activity {
 			}
 		}
 	}
+
+	public class MyTimerTask extends TimerTask {
+		private Runnable runnable = new Runnable() {
+			public void run() {
+				if(isServiceRunning()) {
+					buttonStart.setText("Stop Tracking");
+				} else {
+					buttonStart.setText("Start Tracking");
+				}
+			}
+		};
+
+		@Override
+		public void run() {
+			handler.post(runnable);
+		}
+	}
+
+	public boolean isServiceRunning() {
+        final ActivityManager activityManager = (ActivityManager)getSystemService(GeoloqiSocketClient.ACTIVITY_SERVICE);
+        final List<RunningServiceInfo> services = activityManager.getRunningServices(Integer.MAX_VALUE);
 	
+	    boolean isServiceFound = false;
+	
+	    for (int i = 0; i < services.size(); i++) {
+	        if("com.geoloqi.socket".equals(services.get(i).service.getPackageName())) {
+	            if("com.geoloqi.socket.GeoloqiService".equals(services.get(i).service.getClassName())) {
+	                isServiceFound = true;
+	            }
+	        }
+	    }
+	    return isServiceFound;
+	}
+
 }

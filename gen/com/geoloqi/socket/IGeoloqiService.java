@@ -58,6 +58,24 @@ reply.writeNoException();
 reply.writeInt(_result);
 return true;
 }
+case TRANSACTION_registerCallback:
+{
+data.enforceInterface(DESCRIPTOR);
+com.geoloqi.socket.IGeoloqiServiceCallback _arg0;
+_arg0 = com.geoloqi.socket.IGeoloqiServiceCallback.Stub.asInterface(data.readStrongBinder());
+this.registerCallback(_arg0);
+reply.writeNoException();
+return true;
+}
+case TRANSACTION_unregisterCallback:
+{
+data.enforceInterface(DESCRIPTOR);
+com.geoloqi.socket.IGeoloqiServiceCallback _arg0;
+_arg0 = com.geoloqi.socket.IGeoloqiServiceCallback.Stub.asInterface(data.readStrongBinder());
+this.unregisterCallback(_arg0);
+reply.writeNoException();
+return true;
+}
 }
 return super.onTransact(code, data, reply, flags);
 }
@@ -110,10 +128,60 @@ _data.recycle();
 }
 return _result;
 }
+/**
+     * Often you want to allow a service to call back to its clients.
+     * This shows how to do so, by registering a callback interface with
+     * the service.
+     */
+public void registerCallback(com.geoloqi.socket.IGeoloqiServiceCallback cb) throws android.os.RemoteException
+{
+android.os.Parcel _data = android.os.Parcel.obtain();
+android.os.Parcel _reply = android.os.Parcel.obtain();
+try {
+_data.writeInterfaceToken(DESCRIPTOR);
+_data.writeStrongBinder((((cb!=null))?(cb.asBinder()):(null)));
+mRemote.transact(Stub.TRANSACTION_registerCallback, _data, _reply, 0);
+_reply.readException();
+}
+finally {
+_reply.recycle();
+_data.recycle();
+}
+}
+/**
+     * Remove a previously registered callback interface.
+     */
+public void unregisterCallback(com.geoloqi.socket.IGeoloqiServiceCallback cb) throws android.os.RemoteException
+{
+android.os.Parcel _data = android.os.Parcel.obtain();
+android.os.Parcel _reply = android.os.Parcel.obtain();
+try {
+_data.writeInterfaceToken(DESCRIPTOR);
+_data.writeStrongBinder((((cb!=null))?(cb.asBinder()):(null)));
+mRemote.transact(Stub.TRANSACTION_unregisterCallback, _data, _reply, 0);
+_reply.readException();
+}
+finally {
+_reply.recycle();
+_data.recycle();
+}
+}
 }
 static final int TRANSACTION_getPid = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
 static final int TRANSACTION_lastLocationDate = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+static final int TRANSACTION_registerCallback = (android.os.IBinder.FIRST_CALL_TRANSACTION + 2);
+static final int TRANSACTION_unregisterCallback = (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
 }
 public int getPid() throws android.os.RemoteException;
 public int lastLocationDate() throws android.os.RemoteException;
+/**
+     * Often you want to allow a service to call back to its clients.
+     * This shows how to do so, by registering a callback interface with
+     * the service.
+     */
+public void registerCallback(com.geoloqi.socket.IGeoloqiServiceCallback cb) throws android.os.RemoteException;
+/**
+     * Remove a previously registered callback interface.
+     */
+public void unregisterCallback(com.geoloqi.socket.IGeoloqiServiceCallback cb) throws android.os.RemoteException;
 }

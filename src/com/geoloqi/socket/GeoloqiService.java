@@ -28,6 +28,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
+import android.os.RemoteCallbackList;
+import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -35,6 +37,14 @@ public class GeoloqiService extends Service implements LocationListener {
 	private static final String TAG = "geoloqi.socket.service";
 	private static final int NOTIFICATION_ID = 1024;
 
+    /**
+     * This is a list of callbacks that have been registered with the
+     * service.  Note that this is package scoped (instead of private) so
+     * that it can be accessed more efficiently from inner classes.
+     */
+    final RemoteCallbackList<IGeoloqiServiceCallback> mCallbacks
+            = new RemoteCallbackList<IGeoloqiServiceCallback>();
+    
 	static String host = "api.geoloqi.com";
 	static int port = 40000;
 	public Socket s;
@@ -51,7 +61,13 @@ public class GeoloqiService extends Service implements LocationListener {
             // Does nothing
         	return 1;
         }
-    };;
+        public void registerCallback(IGeoloqiServiceCallback cb) {
+            if (cb != null) mCallbacks.register(cb);
+        }
+        public void unregisterCallback(IGeoloqiServiceCallback cb) {
+            if (cb != null) mCallbacks.unregister(cb);
+        }
+    };
 
 	Notification notification;
 	LocationManager locationManager;
@@ -144,7 +160,7 @@ public class GeoloqiService extends Service implements LocationListener {
 		Log.d(TAG, "onStart");
 		
 		// String bestProvider = locationManager.getBestProvider(new Criteria(), true);
-		locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDistance, this);
+		// locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDistance, this);
 	}
 
 	public void onLocationChanged(Location location) {
@@ -244,6 +260,19 @@ public class GeoloqiService extends Service implements LocationListener {
 					msg.obj = response;
 					incomingHandler.sendMessage(msg);
 					// browserHandler.sendDataToBrowser(response);
+
+					int i = mCallbacks.beginBroadcast();
+					 while (i > 0) {
+					     i--;
+					     try {
+					    	 mCallbacks.getBroadcastItem(i).messageReceived(9);
+					     } catch (RemoteException e) {
+					         // The RemoteCallbackList will take care of removing
+					         // the dead object for us.
+					     }
+					 }
+					 mCallbacks.finishBroadcast();
+					 
 					Log.i(TAG, "Got this in the background: " + response);
 				}
 			} catch (Exception e) {

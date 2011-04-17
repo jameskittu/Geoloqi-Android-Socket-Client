@@ -16,6 +16,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-		<service android:enabled="true" android:name=".GeoloqiService" android:process=":lqRemote" />
+		<service android:enabled="true" 
+			android:name=".GeoloqiService"
+			android:process=":lqRemote">
+ 			<intent-filter>
+ 				 <action android:name="com.geoloqi.socket.IGeoloqiService" />
+ 			</intent-filter>
+ 		</service>
     </application>
 </manifest>

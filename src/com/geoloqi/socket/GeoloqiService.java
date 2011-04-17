@@ -27,6 +27,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Process;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -42,7 +43,15 @@ public class GeoloqiService extends Service implements LocationListener {
 	private Thread readerThread;
 
 	// Binder given to clients
-    private final IBinder mBinder = new LocalBinder();
+    private final IGeoloqiService.Stub mBinder = new IGeoloqiService.Stub() {
+        public int getPid(){
+            return Process.myPid();
+        }
+        public int lastLocationDate() {
+            // Does nothing
+        	return 1;
+        }
+    };;
 
 	Notification notification;
 	LocationManager locationManager;
@@ -60,17 +69,6 @@ public class GeoloqiService extends Service implements LocationListener {
 	public IBinder onBind(Intent intent) {
 		return mBinder;
 	}
-
-    /**
-     * Class used for the client Binder.  Because we know this service always
-     * runs in the same process as its clients, we don't need to deal with IPC.
-     */
-    public class LocalBinder extends Binder {
-        GeoloqiService getService() {
-            // Return this instance of GeoloqiService so clients can call public methods
-            return GeoloqiService.this;
-        }
-    }
 
 	@Override
 	public void onCreate() {
